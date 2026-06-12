@@ -82,14 +82,14 @@ std::string run_key_generator(CipherType type) {
 }
 
 void show_menu() {
-    std::cout << "\n=== Encryption Algorithm RGR ===\n";
-    std::cout << "1. Цезарь (libcaesar.so)\n";
-    std::cout << "2. Атбаш (libatbash.so)\n";
-    std::cout << "3. XOR (libxor.so)\n";
-    std::cout << "4. Виженер (libvigenere.so)\n";
+    std::cout << "\nEncryption Algorithm RGR\n";
+    std::cout << "1. Цезарь\n";
+    std::cout << "2. Атбаш\n";
+    std::cout << "3. XOR\n";
+    std::cout << "4. Виженер\n";
     std::cout << "5. Хилл (libhill.so)\n";
-    std::cout << "6. AES (libaes.so)\n";
-    std::cout << "0. Выход\n";
+    std::cout << "6. AES\n";
+    std::cout << "0. Выход из программы\n";
     std::cout << "Выберите алгоритм: ";
 }
 
@@ -116,26 +116,36 @@ int main() {
             continue;
         }
 
-        std::cout << "\n1. Запустить генератор ключей\n2. Шифровать текст\n3. Шифровать файл\nВыберите режим: ";
+        std::cout << "\n1. Запустить генератор ключей\n2. Работа с текстом\n3. Работа с файлом\n0. Вернуться назад\nВыберите режим: ";
         int mode;
         std::cin >> mode;
+
+        if (mode == 0) {
+            std::cout << "Возврат в главное меню.\n";
+            continue; // Возвращает пользователя к выбору шифра
+        }
 
         try {
             if (mode == 1) {
                 std::string generated = run_key_generator(choice);
                 std::cout << "Сгенерированный ключ: " << generated << "\n";
                 
-                // Сохранение ключа в отдельный файл key.txt с перезаписью
-                std::ofstream key_file("key.txt", std::ios::trunc); 
+                // Сохранение ключа в отдельный файл key.key с перезаписью
+                std::ofstream key_file("key.key", std::ios::trunc); 
                 if (key_file.is_open()) {
                     key_file << generated;
                     key_file.close();
-                    std::cout << "Ключ успешно сохранен и обновлен в файле: key.txt\n";
+                    std::cout << "Ключ успешно сохранен и обновлен в файле: key.key\n";
                 } else {
-                    std::cout << "Предупреждение: Не удалось открыть файл key.txt для записи.\n";
+                    std::cout << "Предупреждение: Не удалось открыть файл key.key для записи.\n";
                 }
             } 
             else if (mode == 2) {
+                std::cout << "\n1. Зашифровать\n2. Расшифровать\n0. Вернуться назад\nВыбор: ";
+                int op; std::cin >> op;
+                if (op == 0) continue;
+                bool enc = (op == 1);
+
                 std::cin.ignore();
                 std::cout << "Введите строку: ";
                 std::string text;
@@ -144,10 +154,6 @@ int main() {
                 std::cout << "Введите ключ: ";
                 std::string key;
                 std::getline(std::cin, key);
-
-                std::cout << "1. Зашифровать\n2. Расшифровать\nВыбор: ";
-                int op; std::cin >> op;
-                bool enc = (op == 1);
 
                 std::vector<unsigned char> in_buf(text.begin(), text.end());
                 std::vector<unsigned char> out_buf(in_buf.size());
@@ -158,6 +164,11 @@ int main() {
                 std::cout << "Результат: " << res << "\n";
             } 
             else if (mode == 3) {
+                std::cout << "\n1. Зашифровать\n2. Расшифровать\n0. Вернуться назад\nВыбор: ";
+                int op; std::cin >> op;
+                if (op == 0) continue;
+                bool enc = (op == 1);
+
                 std::cin.ignore();
                 std::cout << "Введите путь к исходному файлу: ";
                 std::string in_path;
@@ -175,10 +186,6 @@ int main() {
                 std::cout << "Введите ключ: ";
                 std::string key;
                 std::getline(std::cin, key);
-
-                std::cout << "1. Зашифровать\n2. Расшифровать\nВыбор: ";
-                int op; std::cin >> op;
-                bool enc = (op == 1);
 
                 std::ifstream infile(in_path, std::ios::binary | std::ios::ate);
                 if (!infile.is_open()) throw std::runtime_error("Не удалось открыть файл ввода.");
