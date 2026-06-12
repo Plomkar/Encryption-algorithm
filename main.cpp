@@ -82,13 +82,13 @@ std::string run_key_generator(CipherType type) {
 }
 
 void show_menu() {
-    std::cout << "\nEncryption Algorithm RGR\n";
-    std::cout << "1. Цезарь\n";
-    std::cout << "2. Атбаш\n";
-    std::cout << "3. XOR\n";
-    std::cout << "4. Виженер\n";
-    std::cout << "5. Хилл\n";
-    std::cout << "6. AES\n";
+    std::cout << "\n=== Encryption Algorithm RGR ===\n";
+    std::cout << "1. Цезарь (libcaesar.so)\n";
+    std::cout << "2. Атбаш (libatbash.so)\n";
+    std::cout << "3. XOR (libxor.so)\n";
+    std::cout << "4. Виженер (libvigenere.so)\n";
+    std::cout << "5. Хилл (libhill.so)\n";
+    std::cout << "6. AES (libaes.so)\n";
     std::cout << "0. Выход\n";
     std::cout << "Выберите алгоритм: ";
 }
@@ -116,7 +116,7 @@ int main() {
             continue;
         }
 
-        std::cout << "\n1. Запустить генератор ключей\n2. Работа с текстом\n3. Работа с файлом\nВыберите режим: ";
+        std::cout << "\n1. Запустить генератор ключей\n2. Шифровать текст\n3. Шифровать файл\nВыберите режим: ";
         int mode;
         std::cin >> mode;
 
@@ -124,6 +124,16 @@ int main() {
             if (mode == 1) {
                 std::string generated = run_key_generator(choice);
                 std::cout << "Сгенерированный ключ: " << generated << "\n";
+                
+                // Сохранение ключа в отдельный файл key.txt с перезаписью
+                std::ofstream key_file("key.txt", std::ios::trunc); 
+                if (key_file.is_open()) {
+                    key_file << generated;
+                    key_file.close();
+                    std::cout << "Ключ успешно сохранен и обновлен в файле: key.txt\n";
+                } else {
+                    std::cout << "Предупреждение: Не удалось открыть файл key.txt для записи.\n";
+                }
             } 
             else if (mode == 2) {
                 std::cin.ignore();
