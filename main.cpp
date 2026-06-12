@@ -82,13 +82,13 @@ std::string run_key_generator(CipherType type) {
 }
 
 void show_menu() {
-    std::cout << "\n=== Encryption Algorithm RGR ===\n";
-    std::cout << "1. Цезарь (libcaesar.so)\n";
-    std::cout << "2. Атбаш (libatbash.so)\n";
-    std::cout << "3. XOR (libxor.so)\n";
-    std::cout << "4. Виженер (libvigenere.so)\n";
-    std::cout << "5. Хилл (libhill.so)\n";
-    std::cout << "6. AES (libaes.so)\n";
+    std::cout << "\nEncryption Algorithm RGR\n";
+    std::cout << "1. Цезарь\n";
+    std::cout << "2. Атбаш\n";
+    std::cout << "3. XOR\n";
+    std::cout << "4. Виженер\n";
+    std::cout << "5. Хилл\n";
+    std::cout << "6. AES\n";
     std::cout << "0. Выход\n";
     std::cout << "Выберите алгоритм: ";
 }
@@ -116,7 +116,7 @@ int main() {
             continue;
         }
 
-        std::cout << "\n1. Запустить генератор ключей\n2. Шифровать текст\n3. Шифровать файл\nВыберите режим: ";
+        std::cout << "\n1. Запустить генератор ключей\n2. Работа с текстом\n3. Работа с файлом\nВыберите режим: ";
         int mode;
         std::cin >> mode;
 
