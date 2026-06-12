@@ -23,16 +23,7 @@ extern "C" {
     std::string generate_key() {
         srand(static_cast<unsigned int>(time(nullptr)));
         std::string k = "";
-        for(int i = 0; i < 16; ++i) {
-            int type = rand() % 3;
-            if (type == 0) {
-                k += static_cast<char>('0' + (rand() % 10)); // Цифры (ASCII 48-57)
-            } else if (type == 1) {
-                k += static_cast<char>('A' + (rand() % 26)); // Заглавные (ASCII 65-90)
-            } else {
-                k += static_cast<char>('a' + (rand() % 26)); // Строчные (ASCII 97-122)
-            }
-        }
+        for(int i = 0; i < 16; ++i) k += static_cast<char>(rand() % 256);
         return k;
     }
 }
