@@ -190,45 +190,58 @@ int main() {
                     std::cout << "1. Зашифровать\n2. Расшифровать\nВыбор: ";
                     int op; std::cin >> op;
                     bool enc = (op == 1);
-                    std::cin.ignore(); // Очищаем буфер после ввода числа
+                    std::cin.ignore(); 
 
                     std::cout << "Введите ключ (в формате HEX): ";
                     std::string hex_key;
                     std::getline(std::cin, hex_key);
                     std::string key = from_hex(hex_key);
 
-                    // ПРОВЕРКА: Если ключ пустой и это НЕ шифр Атбаш
                     if (key.empty() && choice != CipherType::Atbash) {
                         throw std::runtime_error("Ключ не может быть пустым для выбранного алгоритма!");
                     }
 
                     std::vector<unsigned char> in_buf;
+                    size_t original_size = 0; // Запоминаем исходный размер для расшифрования
 
                     if (enc) {
                         std::cout << "Введите строку: ";
                         std::string text;
                         std::getline(std::cin, text);
                         
-                        // ПРОВЕРКА: Защита от пустой строки при шифровании
                         if (text.empty()) {
                             throw std::runtime_error("Строка для шифрования не может быть пустой!");
                         }
                         
+                        original_size = text.length();
                         in_buf.assign(text.begin(), text.end());
+
+                        // --- ДОБАВЛЯЕМ ВЫРАВНИВАНИЕ (PADDING) ДЛЯ ЗАШИФРОВАНИЯ ---
+                        if (choice == CipherType::Aes) {
+                            // Округляем до ближайшего кратного 16
+                            size_t padded_size = ((in_buf.size() + 15) / 16) * 16;
+                            in_buf.resize(padded_size, 0); // Дописываем нули
+                        } else if (choice == CipherType::Hill) {
+                            // Округляем до ближайшего кратного 2
+                            if (in_buf.size() % 2 != 0) {
+                                in_buf.push_back(0); // Дописываем один ноль
+                            }
+                        }
                     } else {
                         std::cout << "Введите зашифрованный текст (в формате HEX): ";
                         std::string hex_text;
                         std::getline(std::cin, hex_text);
                         
-                        // ПРОВЕРКА: Защита от пустой строки при расшифровании
                         if (hex_text.empty()) {
                             throw std::runtime_error("Строка с HEX-текстом не может быть пустой!");
                         }
                         
                         std::string bin_text = from_hex(hex_text);
                         in_buf.assign(bin_text.begin(), bin_text.end());
+                        // При расшифровании размер уже должен быть кратным блоку, так как пришел из HEX
                     }
 
+                    // Теперь out_buf гарантированно правильного блочного размера
                     std::vector<unsigned char> out_buf(in_buf.size());
 
                     run_cipher(choice, in_buf, out_buf, key, enc);
@@ -237,10 +250,16 @@ int main() {
                         std::string raw_res(out_buf.begin(), out_buf.end());
                         std::cout << "Результат (HEX): " << to_hex(raw_res) << "\n";
                     } else {
+                        // При расшифровании отбрасываем нулевые байты хвоста, если они были дописаны
                         std::string res(out_buf.begin(), out_buf.end());
+                        // Находим первый нулевой терминатор или выводим как есть
+                        size_t real_len = res.find('\0');
+                        if (real_len != std::string::npos) {
+                            res = res.substr(0, real_len);
+                        }
                         std::cout << "Результат: " << res << "\n";
                     }
-                } 
+                }
                 else if (mode == 3) {
                     std::cin.ignore();
                     std::cout << "Введите путь к исходному файлу: ";
