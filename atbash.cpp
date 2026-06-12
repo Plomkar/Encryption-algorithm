@@ -9,6 +9,6 @@ extern "C" {
     }
 
     std::string generate_key() {
-        return "Не требуется";
+        return "";
     }
 }

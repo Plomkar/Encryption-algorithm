@@ -70,7 +70,7 @@ std::string from_hex(const std::string& hex_input) {
     }
     
     if (clean_hex.length() % 2 != 0) {
-        throw std::runtime_error("Длина HEX-строки должна быть четной!");
+        throw std::runtime_error("Длина HEX-строки должна быть чётной!");
     }
 
     for (size_t i = 0; i < clean_hex.length(); i += 2) {
@@ -197,17 +197,34 @@ int main() {
                     std::getline(std::cin, hex_key);
                     std::string key = from_hex(hex_key);
 
+                    // ПРОВЕРКА: Если ключ пустой и это НЕ шифр Атбаш
+                    if (key.empty() && choice != CipherType::Atbash) {
+                        throw std::runtime_error("Ключ не может быть пустым для выбранного алгоритма!");
+                    }
+
                     std::vector<unsigned char> in_buf;
 
                     if (enc) {
                         std::cout << "Введите строку: ";
                         std::string text;
                         std::getline(std::cin, text);
+                        
+                        // ПРОВЕРКА: Защита от пустой строки при шифровании
+                        if (text.empty()) {
+                            throw std::runtime_error("Строка для шифрования не может быть пустой!");
+                        }
+                        
                         in_buf.assign(text.begin(), text.end());
                     } else {
                         std::cout << "Введите зашифрованный текст (в формате HEX): ";
                         std::string hex_text;
                         std::getline(std::cin, hex_text);
+                        
+                        // ПРОВЕРКА: Защита от пустой строки при расшифровании
+                        if (hex_text.empty()) {
+                            throw std::runtime_error("Строка с HEX-текстом не может быть пустой!");
+                        }
+                        
                         std::string bin_text = from_hex(hex_text);
                         in_buf.assign(bin_text.begin(), bin_text.end());
                     }
@@ -244,6 +261,11 @@ int main() {
                     std::getline(std::cin, hex_key);
                     std::string key = from_hex(hex_key);
 
+                    // ПРОВЕРКА: Для файлов требуем ключ (если это не Атбаш)
+                    if (key.empty() && choice != CipherType::Atbash) {
+                        throw std::runtime_error("Ключ не может быть пустым для выбранного алгоритма!");
+                    }
+
                     std::cout << "1. Зашифровать\n2. Расшифровать\nВыбор: ";
                     int op; std::cin >> op;
                     bool enc = (op == 1);
@@ -253,6 +275,12 @@ int main() {
                     
                     std::streamsize size = infile.tellg();
                     infile.seekg(0, std::ios::beg);
+
+                    // ПРОВЕРКА: Защита от обработки пустого файла (0 байт)
+                    if (size == 0) {
+                        infile.close();
+                        throw std::runtime_error("Выбранный файл пуст! Нечего шифровать.");
+                    }
 
                     std::vector<unsigned char> in_buf(size);
                     if (!infile.read(reinterpret_cast<char*>(in_buf.data()), size)) {
@@ -276,6 +304,7 @@ int main() {
                 }
             } 
             catch (const std::exception& e) {
+                // Все throw std::runtime_error будут красиво перехватываться здесь
                 std::cerr << "Произошел сбой: " << e.what() << "\n";
             }
         }
