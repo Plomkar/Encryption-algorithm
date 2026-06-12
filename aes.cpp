@@ -1,8 +1,10 @@
 #include "crypto_interface.h"
 #include <vector>
-#include <array>
+#include <string>
+#include <cstring>
+#include <random>
 
-// Стандартный S-Box (Таблица подстановок для нелинейности)
+// S-Box (Таблица замен): используется для нелинейной подстановки байтов (этап SubBytes)
 const unsigned char sbox[256] = {
     0x63, 0x7c, 0x77, 0x7b, 0xf2, 0x6b, 0x6f, 0xc5, 0x30, 0x01, 0x67, 0x2b, 0xfe, 0xd7, 0xab, 0x76,
     0xca, 0x82, 0xc9, 0x7d, 0xfa, 0x59, 0x47, 0xf0, 0xad, 0xd4, 0xa2, 0xaf, 0x9c, 0xa4, 0x72, 0xc0,
@@ -22,142 +24,120 @@ const unsigned char sbox[256] = {
     0x8c, 0xa1, 0x89, 0x0d, 0xbf, 0xe6, 0x42, 0x68, 0x41, 0x99, 0x2d, 0x0f, 0xb0, 0x54, 0xbb, 0x16
 };
 
-// Обратный S-Box для расшифрования
-const unsigned char inv_sbox[256] = {
-    0x52, 0x09, 0x6a, 0xd5, 0x30, 0x36, 0xa5, 0x38, 0xbf, 0x40, 0xa3, 0x9e, 0x81, 0xf3, 0xd7, 0xfb,
-    0x7c, 0xe3, 0x39, 0x82, 0x9b, 0x2f, 0xff, 0x87, 0x34, 0x8e, 0x43, 0x44, 0xc4, 0xde, 0xe9, 0xcb,
-    0x54, 0x7b, 0x94, 0x32, 0xa6, 0xc2, 0x23, 0x3d, 0xee, 0x4c, 0x95, 0x0b, 0x42, 0xfa, 0xc3, 0x4e,
-    0x08, 0x2e, 0xa1, 0x66, 0x28, 0xd9, 0x24, 0xb2, 0x76, 0x5b, 0xa2, 0x49, 0x6d, 0x8b, 0xd1, 0x25,
-    0x72, 0xf8, 0xf6, 0x64, 0x86, 0x68, 0x98, 0x16, 0xd4, 0xa4, 0x5c, 0xcc, 0x5d, 0x65, 0xb6, 0x92,
-    0x6c, 0x70, 0x48, 0x50, 0xfd, 0xed, 0xb9, 0xda, 0x5e, 0x15, 0x46, 0x57, 0xa7, 0x8d, 0x9d, 0x84,
-    0x90, 0xd8, 0xab, 0x00, 0x8c, 0xbc, 0xd3, 0x0a, 0xf7, 0xe4, 0x58, 0x05, 0xb8, 0xb3, 0x45, 0x06,
-    0xd0, 0x2c, 0x1e, 0x8f, 0xca, 0x3f, 0x0f, 0x02, 0xc1, 0xaf, 0xbd, 0x03, 0x01, 0x13, 0x8a, 0x6b,
-    0x3a, 0x91, 0x11, 0x41, 0x4f, 0x67, 0xdc, 0xea, 0x97, 0xf2, 0xcf, 0xce, 0xf0, 0xb4, 0xe6, 0x73,
-    0x96, 0xac, 0x74, 0x22, 0xe7, 0xad, 0x35, 0x85, 0xe2, 0xf9, 0x37, 0xe8, 0x1c, 0x75, 0xdf, 0x6e,
-    0x47, 0xf1, 0x1a, 0x71, 0x1d, 0x29, 0xc5, 0x89, 0x6f, 0xb7, 0x62, 0x0e, 0xaa, 0x18, 0xbe, 0x1b,
-    0xfc, 0x56, 0x3e, 0x4b, 0xc6, 0xd2, 0x79, 0x20, 0x9a, 0xdb, 0xc0, 0xfe, 0x78, 0xcd, 0x5a, 0xf4,
-    0x1f, 0xdd, 0xa8, 0x33, 0x88, 0x07, 0xc7, 0x31, 0xb1, 0x12, 0x10, 0x59, 0x27, 0x80, 0xec, 0x5f,
-    0x60, 0x51, 0x7f, 0xa9, 0x19, 0xb5, 0x4a, 0x0d, 0x2d, 0xe5, 0x7a, 0x9f, 0x93, 0xc9, 0x9c, 0xef,
-    0xa0, 0xe0, 0x3b, 0x4d, 0xae, 0x2a, 0xf5, 0xb0, 0xc8, 0xeb, 0xbb, 0x3c, 0x83, 0x53, 0x99, 0x61,
-    0x17, 0x2b, 0x04, 0x7e, 0xba, 0x77, 0xd6, 0x26, 0xe1, 0x69, 0x14, 0x63, 0x55, 0x21, 0x0c, 0x7d
-};
+// используются при расширении ключа для добавления константы к первому байту слова
+const unsigned char rcon[11] = { 0x00, 0x01, 0x02, 0x04, 0x08, 0x10, 0x20, 0x40, 0x80, 0x1b, 0x36 };
 
-// Умножение в поле Галуа GF(2^8) на 2
-inline unsigned char galois_mul2(unsigned char value) {
-    return (value & 0x80) ? (static_cast<unsigned char>(value << 1) ^ 0x1b) : static_cast<unsigned char>(value << 1);
+// выполняет умножение на 2 в поле Галуа GF(2^8)
+inline unsigned char xtime(unsigned char x) { 
+    return (x << 1) ^ ((x & 0x80) ? 0x1b : 0x00); 
 }
 
-// Общее умножение в поле Галуа
-inline unsigned char galois_mul(unsigned char a, unsigned char b) {
-    unsigned char p = 0;
-    for (int i = 0; i < 8; i++) {
-        if (b & 1) p ^= a;
-        bool carry = a & 0x80;
-        a <<= 1;
-        if (carry) a ^= 0x1b;
-        b >>= 1;
+void keyExpansion(const unsigned char key[16], unsigned char w[11][16]) {
+    memcpy(w[0], key, 16); 
+    for (int i = 1; i <= 10; ++i) {
+        w[i][0] = w[i-1][0] ^ sbox[w[i-1][13]] ^ rcon[i];
+        w[i][1] = w[i-1][1] ^ sbox[w[i-1][14]];
+        w[i][2] = w[i-1][2] ^ sbox[w[i-1][15]];
+        w[i][3] = w[i-1][3] ^ sbox[w[i-1][12]];
+        for (int j = 4; j < 16; ++j) w[i][j] = w[i-1][j] ^ w[i][j-4];
     }
-    return p;
 }
 
-// --- ОСНОВНЫЕ ШАГИ AES ---
-
-void AddRoundKey(unsigned char* state, const unsigned char* roundKey) {
-    for (int i = 0; i < 16; i++) state[i] ^= roundKey[i];
+void subBytes(unsigned char state[16]) { 
+    for(int i = 0; i < 16; ++i) state[i] = sbox[state[i]]; 
 }
 
-void SubBytes(unsigned char* state) {
-    for (int i = 0; i < 16; i++) state[i] = sbox[state[i]];
-}
-
-void InvSubBytes(unsigned char* state) {
-    for (int i = 0; i < 16; i++) state[i] = inv_sbox[state[i]];
-}
-
-void ShiftRows(unsigned char* state) {
+void shiftRows(unsigned char state[16]) {
     unsigned char tmp[16];
-    for (int i = 0; i < 16; i++) tmp[i] = state[i];
-    // Сдвиги строк матрицы 4x4
-    state[1] = tmp[5];  state[5] = tmp[9];  state[9] = tmp[13]; state[13] = tmp[1];
-    state[2] = tmp[10]; state[6] = tmp[14]; state[10] = tmp[2];  state[14] = tmp[6];
-    state[3] = tmp[15]; state[7] = tmp[3];  state[11] = tmp[7];  state[15] = tmp[11];
+    tmp[0]=state[0]; tmp[4]=state[1]; tmp[8]=state[2]; tmp[12]=state[3];
+    tmp[1]=state[5]; tmp[5]=state[6]; tmp[9]=state[7]; tmp[13]=state[4];
+    tmp[2]=state[10]; tmp[6]=state[11]; tmp[10]=state[8]; tmp[14]=state[9];
+    tmp[3]=state[15]; tmp[7]=state[12]; tmp[11]=state[13]; tmp[15]=state[14];
+    memcpy(state, tmp, 16);
 }
 
-void InvShiftRows(unsigned char* state) {
-    unsigned char tmp[16];
-    for (int i = 0; i < 16; i++) tmp[i] = state[i];
-    state[1] = tmp[13]; state[5] = tmp[1];  state[9] = tmp[5];  state[13] = tmp[9];
-    state[2] = tmp[10]; state[6] = tmp[14]; state[10] = tmp[2];  state[14] = tmp[6];
-    state[3] = tmp[7];  state[7] = tmp[11]; state[11] = tmp[15]; state[15] = tmp[3];
-}
-
-void MixColumns(unsigned char* state) {
-    for (int i = 0; i < 4; i++) {
-        unsigned char s0 = state[i*4], s1 = state[i*4+1], s2 = state[i*4+2], s3 = state[i*4+3];
-        state[i*4]   = galois_mul2(s0) ^ (galois_mul2(s1) ^ s1) ^ s2 ^ s3;
-        state[i*4+1] = s0 ^ galois_mul2(s1) ^ (galois_mul2(s2) ^ s2) ^ s3;
-        state[i*4+2] = s0 ^ s1 ^ galois_mul2(s2) ^ (galois_mul2(s3) ^ s3);
-        state[i*4+3] = (galois_mul2(s0) ^ s0) ^ s1 ^ s2 ^ galois_mul2(s3);
+void mixColumns(unsigned char state[16]) {
+    for (int i = 0; i < 4; ++i) {
+        unsigned char* c = &state[i * 4];
+        unsigned char a = c[0], b = c[1], d = c[2], e = c[3];
+        c[0] = xtime(a) ^ (xtime(b) ^ b) ^ d ^ e;
+        c[1] = a ^ xtime(b) ^ (xtime(d) ^ d) ^ e;
+        c[2] = a ^ b ^ xtime(d) ^ (xtime(e) ^ e);
+        c[3] = (xtime(a) ^ a) ^ b ^ d ^ xtime(e);
     }
 }
 
-void InvColumns(unsigned char* state) {
-    for (int i = 0; i < 4; i++) {
-        unsigned char s0 = state[i*4], s1 = state[i*4+1], s2 = state[i*4+2], s3 = state[i*4+3];
-        state[i*4]   = galois_mul(s0, 14) ^ galois_mul(s1, 11) ^ galois_mul(s2, 13) ^ galois_mul(s3, 9);
-        state[i*4+1] = galois_mul(s0, 9)  ^ galois_mul(s1, 14) ^ galois_mul(s2, 11) ^ galois_mul(s3, 13);
-        state[i*4+2] = galois_mul(s0, 13) ^ galois_mul(s1, 9)  ^ galois_mul(s2, 14) ^ galois_mul(s3, 11);
-        state[i*4+3] = galois_mul(s0, 11) ^ galois_mul(s1, 13) ^ galois_mul(s2, 9)  ^ galois_mul(s3, 14);
+void addRoundKey(unsigned char state[16], const unsigned char key[16]) {
+    for (int i = 0; i < 16; ++i) state[i] ^= key[i];
+}
+
+void aesEncryptBlock(unsigned char block[16], unsigned char w[11][16]) {
+    addRoundKey(block, w[0]); 
+    for (int r = 1; r < 10; ++r) { 
+        subBytes(block);
+        shiftRows(block);
+        mixColumns(block);
+        addRoundKey(block, w[r]);
     }
+    subBytes(block);
+    shiftRows(block);
+    addRoundKey(block, w[10]);
 }
 
 extern "C" {
+
     void process_data(const unsigned char* in, size_t size, unsigned char* out, const std::string& key, bool encrypt) {
-        // Подготовка 16-байтного мастер-ключа
-        unsigned char master_key[16] = {0};
+        unsigned char masterKey[16] = {0};
+        unsigned char iv[16] = {0};
+
         for (size_t i = 0; i < 16 && i < key.length(); ++i) {
-            master_key[i] = static_cast<unsigned char>(key[i]);
+            masterKey[i] = static_cast<unsigned char>(key[i]);
+        }
+        
+
+        for (size_t i = 0; i < 16; ++i) {
+            if (16 + i < key.length()) {
+                iv[i] = static_cast<unsigned char>(key[16 + i]);
+            } else {
+                iv[i] = masterKey[i] ^ 0x55; // Дефолтный вектор сдвига
+            }
         }
 
-        // В полноценном AES здесь вызывается расширение ключа (KeyExpansion) на 11 раундовых ключей.
-        // Для демонстрации структуры раунда используем мастер-ключ как раундовый.
-        unsigned char pseudo_round_key[16];
-        for(int i=0; i<16; ++i) pseudo_round_key[i] = master_key[i];
+        unsigned char w[11][16];
+        keyExpansion(masterKey, w);
 
-        // Обработка строго блоками по 16 байт (в реальном коде нужен Padding, например PKCS#7)
-        for (size_t block = 0; block < size; block += 16) {
-            unsigned char state[16] = {0};
+        unsigned char feedback[16];
+        memcpy(feedback, iv, 16); 
+
+        for (size_t i = 0; i < size; i += 16) {
+            unsigned char stream[16];
+            memcpy(stream, feedback, 16);
             
-            // Копируем входной блок (с защитой от выхода за границы)
-            for (int i = 0; i < 16; i++) {
-                if (block + i < size) state[i] = in[block + i];
-            }
+            aesEncryptBlock(stream, w); 
 
-            if (encrypt) {
-                // СТРУКТУРА ОДНОГО КЛАССИЧЕСКОГО РАУНДА AES
-                AddRoundKey(state, pseudo_round_key);
-                SubBytes(state);
-                ShiftRows(state);
-                MixColumns(state);
-                AddRoundKey(state, pseudo_round_key); // Финальный раунд
-            } else {
-            // ОБРАТНЫЙ РАУНД AES (Строго обратный порядок!)
-                AddRoundKey(state, pseudo_round_key); // Снимаем финальный AddRoundKey
-                InvColumns(state);                   // Теперь InvColumns идет ПЕРЕД сдвигами
-                InvShiftRows(state);
-                InvSubBytes(state);
-                AddRoundKey(state, pseudo_round_key); // Снимаем начальный AddRoundKey
-            }
-
-            // Записываем результат в выходной буфер
-            for (int i = 0; i < 16; i++) {
-                if (block + i < size) out[block + i] = state[i];
+            for (int j = 0; j < 16; ++j) {
+                if (i + j < size) {
+                    unsigned char originalByte = in[i + j];
+                    
+                    out[i + j] = in[i + j] ^ stream[j]; 
+                    
+                    // Обновление обратной связи: о текущий блок шифротекста
+                    feedback[j] = encrypt ? out[i + j] : originalByte;
+                }
             }
         }
     }
 
     std::string generate_key() {
-        // Возвращаем дефолтный 16-байтный ключ
-        return "1234567890abcdef"; 
+        // Генерируем 32 случайных байта: 16 байт для Ключа + 16 байт для IV
+        std::random_device rd;
+        std::mt19937 gen(rd());
+        std::uniform_int_distribution<> dis(0, 255);
+        
+        std::string full_key = "";
+        for (int i = 0; i < 32; ++i) {
+            full_key += static_cast<char>(dis(gen));
+        }
+        return full_key;
     }
 }

@@ -216,7 +216,6 @@ int main() {
                         original_size = text.length();
                         in_buf.assign(text.begin(), text.end());
 
-                        // --- ДОБАВЛЯЕМ ВЫРАВНИВАНИЕ (PADDING) ДЛЯ ЗАШИФРОВАНИЯ ---
                         if (choice == CipherType::Aes) {
                             // Округляем до ближайшего кратного 16
                             size_t padded_size = ((in_buf.size() + 15) / 16) * 16;
@@ -238,7 +237,6 @@ int main() {
                         
                         std::string bin_text = from_hex(hex_text);
                         in_buf.assign(bin_text.begin(), bin_text.end());
-                        // При расшифровании размер уже должен быть кратным блоку, так как пришел из HEX
                     }
 
                     // Теперь out_buf гарантированно правильного блочного размера
