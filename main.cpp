@@ -2,7 +2,7 @@
 #include <stdint.h>
 #include <string>
 #include <vector>
-#include <dlfcn.h> // Заголовочный файл для динамической загрузки в Linux
+#include <dlfcn.h>
 
 // Сигнатуры функций из интерфейса
 typedef uint8_t* (*crypto_func)(const uint8_t*, size_t, const uint8_t*, size_t, size_t*);
