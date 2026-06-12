@@ -23,8 +23,10 @@ extern "C" {
             b = (adj_b * inv_det) % 256;
             c = (adj_c * inv_det) % 256;
             d = (adj_d * inv_det) % 256;
-            if (a < 0) a += 256; if (b < 0) b += 256;
-            if (c < 0) c += 256; if (d < 0) d += 256;
+            if (a < 0) { a += 256; }
+            if (b < 0) { b += 256; }
+            if (c < 0) { c += 256; }
+            if (d < 0) { d += 256; }
         }
 
         for (size_t i = 0; i < size; i += 2) {

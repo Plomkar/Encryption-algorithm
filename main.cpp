@@ -5,6 +5,9 @@
 #include <dlfcn.h>
 #include <sys/stat.h>
 #include <clocale>
+#include <sstream>
+#include <iomanip>
+#include <cctype>
 
 // Прототипы функций из интерфейса библиотек
 typedef void (*process_data_t)(const unsigned char*, size_t, unsigned char*, const std::string&, bool);
@@ -39,6 +42,43 @@ std::string get_lib_name(CipherType type) {
         case CipherType::Aes:      return "./libaes.so";
         default:                   return "";
     }
+}
+
+// Переводит бинарную строку (с любыми байтами) в читаемый HEX-вид
+std::string to_hex(const std::string& input) {
+    std::ostringstream oss;
+    for (unsigned char c : input) {
+        oss << std::hex << std::setw(2) << std::setfill('0') << std::uppercase << static_cast<int>(c);
+    }
+    return oss.str();
+}
+
+// Переводит введенную пользователем HEX-строку обратно в бинарный вид
+std::string from_hex(const std::string& hex_input) {
+    std::string result;
+    std::string clean_hex = "";
+    
+    // Удаляем пробелы, если пользователь случайно их вставил
+    for (char c : hex_input) {
+        if (!std::isspace(static_cast<unsigned char>(c))) {
+            clean_hex += c;
+        }
+    }
+    
+    if (clean_hex.empty()) {
+        return "";
+    }
+    
+    if (clean_hex.length() % 2 != 0) {
+        throw std::runtime_error("Длина HEX-строки должна быть четной!");
+    }
+
+    for (size_t i = 0; i < clean_hex.length(); i += 2) {
+        std::string byteString = clean_hex.substr(i, 2);
+        char byte = static_cast<char>(std::strtol(byteString.c_str(), nullptr, 16));
+        result += byte;
+    }
+    return result;
 }
 
 void run_cipher(CipherType type, const std::vector<unsigned char>& input, 
@@ -142,7 +182,7 @@ int main() {
             try {
                 if (mode == 1) {
                     std::string generated = run_key_generator(choice);
-                    std::cout << "Сгенерированный ключ: " << generated << "\n";
+                    std::cout << "Сгенерированный ключ (HEX): " << to_hex(generated) << "\n";
                 } 
                 else if (mode == 2) {
                     std::cin.ignore();
@@ -150,9 +190,10 @@ int main() {
                     std::string text;
                     std::getline(std::cin, text);
 
-                    std::cout << "Введите ключ: ";
-                    std::string key;
-                    std::getline(std::cin, key);
+                    std::cout << "Введите ключ (в формате HEX): ";
+                    std::string hex_key;
+                    std::getline(std::cin, hex_key);
+                    std::string key = from_hex(hex_key);
 
                     std::cout << "1. Зашифровать\n2. Расшифровать\nВыбор: ";
                     int op; std::cin >> op;
@@ -181,9 +222,10 @@ int main() {
                     std::string out_path;
                     std::getline(std::cin, out_path);
 
-                    std::cout << "Введите ключ: ";
-                    std::string key;
-                    std::getline(std::cin, key);
+                    std::cout << "Введите ключ (в формате HEX): ";
+                    std::string hex_key;
+                    std::getline(std::cin, hex_key);
+                    std::string key = from_hex(hex_key);
 
                     std::cout << "1. Зашифровать\n2. Расшифровать\nВыбор: ";
                     int op; std::cin >> op;
