@@ -4,28 +4,54 @@
 #include <vector>
 #include <dlfcn.h>
 #include <sys/stat.h>
+#include <clocale>
 
 // Прототипы функций из интерфейса библиотек
 typedef void (*process_data_t)(const unsigned char*, size_t, unsigned char*, const std::string&, bool);
 typedef std::string (*generate_key_t)();
 
-// Функция проверки существования файла (ГОСТ 56939-2024 Валидация)
+// Перечисление типов шифров с помощью enum class
+enum class CipherType {
+    Exit = 0,
+    Caesar = 1,
+    Atbash = 2,
+    Xor = 3,
+    Vigenere = 4,
+    Hill = 5,
+    Aes = 6,
+    Unknown
+};
+
+// Проверка существования файла
 bool file_exists(const std::string& path) {
     struct stat buffer;
     return (stat(path.c_str(), &buffer) == 0);
 }
 
-// Динамический вызов библиотеки
-void run_cipher(const std::string& lib_name, const std::vector<unsigned char>& input, 
+// Преобразование пути .so файла на основе перечисления
+std::string get_lib_name(CipherType type) {
+    switch (type) {
+        case CipherType::Caesar:   return "./libcaesar.so";
+        case CipherType::Atbash:   return "./libatbash.so";
+        case CipherType::Xor:      return "./libxor.so";
+        case CipherType::Vigenere: return "./libvigenere.so";
+        case CipherType::Hill:     return "./libhill.so";
+        case CipherType::Aes:      return "./libaes.so";
+        default:                   return "";
+    }
+}
+
+void run_cipher(CipherType type, const std::vector<unsigned char>& input, 
                 std::vector<unsigned char>& output, const std::string& key, bool encrypt) {
     
-    // Загрузка динамической библиотеки (.so)
+    std::string lib_name = get_lib_name(type);
+    if (lib_name.empty()) throw std::runtime_error("Неверный тип шифра.");
+
     void* handle = dlopen(lib_name.c_str(), RTLD_LAZY);
     if (!handle) {
         throw std::runtime_error("Не удалось загрузить библиотеку: " + std::string(dlerror()));
     }
 
-    // Поиск функции обработки данных
     process_data_t proc = (process_data_t)dlsym(handle, "process_data");
     const char* dlsym_error = dlerror();
     if (dlsym_error) {
@@ -33,17 +59,16 @@ void run_cipher(const std::string& lib_name, const std::vector<unsigned char>& i
         throw std::runtime_error("Ошибка поиска функции: " + std::string(dlsym_error));
     }
 
-    // Выполнение операции
     proc(input.data(), input.size(), output.data(), key, encrypt);
-
-    // Выгрузка библиотеки из памяти
     dlclose(handle);
 }
 
-// Динамический вызов генератора ключей
-std::string run_key_generator(const std::string& lib_name) {
+std::string run_key_generator(CipherType type) {
+    std::string lib_name = get_lib_name(type);
+    if (lib_name.empty()) throw std::runtime_error("Неверный тип шифра.");
+
     void* handle = dlopen(lib_name.c_str(), RTLD_LAZY);
-    if (!handle) throw std::runtime_error("Ошибка загрузки библиотеки для генерации ключа.");
+    if (!handle) throw std::runtime_error("Ошибка загрузки библиотеки.");
 
     generate_key_t gen = (generate_key_t)dlsym(handle, "generate_key");
     if (!gen) {
@@ -69,38 +94,36 @@ void show_menu() {
 }
 
 int main() {
-    // Настройка локализации под русский язык
     std::setlocale(LC_ALL, "ru_RU.UTF-8");
 
     while (true) {
         show_menu();
-        int choice;
-        if (!(std::cin >> choice)) {
+        int int_choice;
+        if (!(std::cin >> int_choice)) {
             std::cout << "Некорректный ввод. Завершение.\n";
             break;
         }
 
-        if (choice == 0) break;
-
-        std::string lib_name = "";
-        switch (choice) {
-            case 1: lib_name = "./libcaesar.so"; break;
-            case 2: lib_name = "./libatbash.so"; break;
-            case 3: lib_name = "./libxor.so"; break;
-            case 4: lib_name = "./libvigenere.so"; break;
-            case 5: lib_name = "./libhill.so"; break;
-            case 6: lib_name = "./libaes.so"; break;
-            default: std::cout << "Неверный пункт меню.\n"; continue;
+        // Приведение введенного int к enum class
+        CipherType choice = CipherType::Unknown;
+        if (int_choice >= 0 && int_choice <= 6) {
+            choice = static_cast<CipherType>(int_choice);
         }
 
-        std::cout << "\n1. Запустить генератор ключей\n2. Шифровать/Дешифровать текст\n3. Шифровать/Дешифровать файл\nВыберите режим: ";
+        if (choice == CipherType::Exit) break;
+        if (choice == CipherType::Unknown) {
+            std::cout << "Неверный пункт меню.\n";
+            continue;
+        }
+
+        std::cout << "\n1. Запустить генератор ключей\n2. Шифровать текст\n3. Шифровать файл\nВыберите режим: ";
         int mode;
         std::cin >> mode;
 
         try {
             if (mode == 1) {
-                std::string generated = run_key_generator(lib_name);
-                std::cout << "Сгенерированный ключ: " << generated << " (в байтовом/строковом виде)\n";
+                std::string generated = run_key_generator(choice);
+                std::cout << "Сгенерированный ключ: " << generated << "\n";
             } 
             else if (mode == 2) {
                 std::cin.ignore();
@@ -119,7 +142,7 @@ int main() {
                 std::vector<unsigned char> in_buf(text.begin(), text.end());
                 std::vector<unsigned char> out_buf(in_buf.size());
 
-                run_cipher(lib_name, in_buf, out_buf, key, enc);
+                run_cipher(choice, in_buf, out_buf, key, enc);
 
                 std::string res(out_buf.begin(), out_buf.end());
                 std::cout << "Результат: " << res << "\n";
@@ -131,7 +154,7 @@ int main() {
                 std::getline(std::cin, in_path);
 
                 if (!file_exists(in_path)) {
-                    std::cout << "Ошибка: Файл не найден! [ГОСТ 56939-2024]\n";
+                    std::cout << "Ошибка: Файл не найден!\n";
                     continue;
                 }
 
@@ -147,7 +170,6 @@ int main() {
                 int op; std::cin >> op;
                 bool enc = (op == 1);
 
-                // Чтение бинарного файла
                 std::ifstream infile(in_path, std::ios::binary | std::ios::ate);
                 if (!infile.is_open()) throw std::runtime_error("Не удалось открыть файл ввода.");
                 
@@ -162,10 +184,8 @@ int main() {
 
                 std::vector<unsigned char> out_buf(size);
 
-                // Вызов алгоритма из библиотеки
-                run_cipher(lib_name, in_buf, out_buf, key, enc);
+                run_cipher(choice, in_buf, out_buf, key, enc);
 
-                // Запись в бинарный файл
                 std::ofstream outfile(out_path, std::ios::binary);
                 if (!outfile.is_open()) throw std::runtime_error("Не удалось открыть файл вывода.");
                 outfile.write(reinterpret_cast<const char*>(out_buf.data()), out_buf.size());
@@ -175,7 +195,6 @@ int main() {
             }
         } 
         catch (const std::exception& e) {
-            // Обработка исключений согласно критерию надежности ТЗ (try-catch)
             std::cerr << "Произошел сбой: " << e.what() << "\n";
         }
     }
