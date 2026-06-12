@@ -186,26 +186,43 @@ int main() {
                 } 
                 else if (mode == 2) {
                     std::cin.ignore();
-                    std::cout << "Введите строку: ";
-                    std::string text;
-                    std::getline(std::cin, text);
+                    
+                    std::cout << "1. Зашифровать\n2. Расшифровать\nВыбор: ";
+                    int op; std::cin >> op;
+                    bool enc = (op == 1);
+                    std::cin.ignore(); // Очищаем буфер после ввода числа
 
                     std::cout << "Введите ключ (в формате HEX): ";
                     std::string hex_key;
                     std::getline(std::cin, hex_key);
                     std::string key = from_hex(hex_key);
 
-                    std::cout << "1. Зашифровать\n2. Расшифровать\nВыбор: ";
-                    int op; std::cin >> op;
-                    bool enc = (op == 1);
+                    std::vector<unsigned char> in_buf;
 
-                    std::vector<unsigned char> in_buf(text.begin(), text.end());
+                    if (enc) {
+                        std::cout << "Введите строку: ";
+                        std::string text;
+                        std::getline(std::cin, text);
+                        in_buf.assign(text.begin(), text.end());
+                    } else {
+                        std::cout << "Введите зашифрованный текст (в формате HEX): ";
+                        std::string hex_text;
+                        std::getline(std::cin, hex_text);
+                        std::string bin_text = from_hex(hex_text);
+                        in_buf.assign(bin_text.begin(), bin_text.end());
+                    }
+
                     std::vector<unsigned char> out_buf(in_buf.size());
 
                     run_cipher(choice, in_buf, out_buf, key, enc);
 
-                    std::string res(out_buf.begin(), out_buf.end());
-                    std::cout << "Результат: " << res << "\n";
+                    if (enc) {
+                        std::string raw_res(out_buf.begin(), out_buf.end());
+                        std::cout << "Результат (HEX): " << to_hex(raw_res) << "\n";
+                    } else {
+                        std::string res(out_buf.begin(), out_buf.end());
+                        std::cout << "Результат: " << res << "\n";
+                    }
                 } 
                 else if (mode == 3) {
                     std::cin.ignore();
