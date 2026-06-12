@@ -1,43 +1,21 @@
 #include "crypto_interface.h"
 #include <cstdlib>
+#include <ctime>
 
 extern "C" {
-    // Шифрование Цезаря: (byte + key) % 256
-    uint8_t* encrypt(const uint8_t* data, size_t size, const uint8_t* key, size_t key_size, size_t* out_size) {
-        if (!data || size == 0 || !key || key_size == 0 || !out_size) return nullptr;
-
-        uint8_t* result = static_cast<uint8_t*>(malloc(size));
-        if (!result) return nullptr;
-
-        // В качестве сдвига берем первый байт ключа
-        uint8_t shift = key[0]; 
+    void process_data(const unsigned char* in, size_t size, unsigned char* out, const std::string& key, bool encrypt) {
+        int shift = key.empty() ? 3 : static_cast<int>(key[0]);
+        if (!encrypt) shift = -shift;
 
         for (size_t i = 0; i < size; ++i) {
-            result[i] = static_cast<uint8_t>((data[i] + shift) % 256);
+            out[i] = static_cast<unsigned char>((in[i] + shift + 256) % 256);
         }
-
-        *out_size = size;
-        return result;
     }
 
-    // Дешифрование Цезаря: (byte - key + 256) % 256
-    uint8_t* decrypt(const uint8_t* data, size_t size, const uint8_t* key, size_t key_size, size_t* out_size) {
-        if (!data || size == 0 || !key || key_size == 0 || !out_size) return nullptr;
-
-        uint8_t* result = static_cast<uint8_t*>(malloc(size));
-        if (!result) return nullptr;
-
-        uint8_t shift = key[0];
-
-        for (size_t i = 0; i < size; ++i) {
-            result[i] = static_cast<uint8_t>((data[i] - shift + 256) % 256);
-        }
-
-        *out_size = size;
-        return result;
-    }
-
-    void free_buffer(uint8_t* buffer) {
-        free(buffer);
+    std::string generate_key() {
+        srand(static_cast<unsigned int>(time(nullptr)));
+        std::string k = "";
+        k += static_cast<char>(1 + rand() % 25); // Сдвиг от 1 до 25
+        return k;
     }
 }
