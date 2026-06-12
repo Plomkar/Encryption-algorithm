@@ -5,6 +5,7 @@
 #include <dlfcn.h>
 #include <sys/stat.h>
 #include <clocale>
+#include <filesystem>
 
 // Прототипы функций из интерфейса библиотек
 typedef void (*process_data_t)(const unsigned char*, size_t, unsigned char*, const std::string&, bool);
@@ -43,14 +44,11 @@ std::string get_lib_name(CipherType type) {
 
 void run_cipher(CipherType type, const std::vector<unsigned char>& input, 
                 std::vector<unsigned char>& output, const std::string& key, bool encrypt) {
-    
     std::string lib_name = get_lib_name(type);
     if (lib_name.empty()) throw std::runtime_error("Неверный тип шифра.");
 
     void* handle = dlopen(lib_name.c_str(), RTLD_LAZY);
-    if (!handle) {
-        throw std::runtime_error("Не удалось загрузить библиотеку: " + std::string(dlerror()));
-    }
+    if (!handle) throw std::runtime_error("Не удалось загрузить библиотеку: " + std::string(dlerror()));
 
     process_data_t proc = (process_data_t)dlsym(handle, "process_data");
     const char* dlsym_error = dlerror();
@@ -87,9 +85,9 @@ void show_menu() {
     std::cout << "2. Атбаш\n";
     std::cout << "3. XOR\n";
     std::cout << "4. Виженер\n";
-    std::cout << "5. Хилл (libhill.so)\n";
+    std::cout << "5. Хилл\n";
     std::cout << "6. AES\n";
-    std::cout << "0. Выход из программы\n";
+    std::cout << "0. Выход\n";
     std::cout << "Выберите алгоритм: ";
 }
 
@@ -104,7 +102,6 @@ int main() {
             break;
         }
 
-        // Приведение введенного int к enum class
         CipherType choice = CipherType::Unknown;
         if (int_choice >= 0 && int_choice <= 6) {
             choice = static_cast<CipherType>(int_choice);
@@ -116,103 +113,122 @@ int main() {
             continue;
         }
 
-        std::cout << "\n1. Запустить генератор ключей\n2. Работа с текстом\n3. Работа с файлом\n0. Вернуться назад\nВыберите режим: ";
-        int mode;
-        std::cin >> mode;
-
-        if (mode == 0) {
-            std::cout << "Возврат в главное меню.\n";
-            continue; // Возвращает пользователя к выбору шифра
-        }
-
-        try {
-            if (mode == 1) {
-                std::string generated = run_key_generator(choice);
-                std::cout << "Сгенерированный ключ: " << generated << "\n";
-                
-                // Сохранение ключа в отдельный файл key.key с перезаписью
-                std::ofstream key_file("key.key", std::ios::trunc); 
-                if (key_file.is_open()) {
-                    key_file << generated;
-                    key_file.close();
-                    std::cout << "Ключ успешно сохранен и обновлен в файле: key.key\n";
-                } else {
-                    std::cout << "Предупреждение: Не удалось открыть файл key.key для записи.\n";
-                }
-            } 
-            else if (mode == 2) {
-                std::cout << "\n1. Зашифровать\n2. Расшифровать\n0. Вернуться назад\nВыбор: ";
-                int op; std::cin >> op;
-                if (op == 0) continue;
-                bool enc = (op == 1);
-
-                std::cin.ignore();
-                std::cout << "Введите строку: ";
-                std::string text;
-                std::getline(std::cin, text);
-
-                std::cout << "Введите ключ: ";
-                std::string key;
-                std::getline(std::cin, key);
-
-                std::vector<unsigned char> in_buf(text.begin(), text.end());
-                std::vector<unsigned char> out_buf(in_buf.size());
-
-                run_cipher(choice, in_buf, out_buf, key, enc);
-
-                std::string res(out_buf.begin(), out_buf.end());
-                std::cout << "Результат: " << res << "\n";
-            } 
-            else if (mode == 3) {
-                std::cout << "\n1. Зашифровать\n2. Расшифровать\n0. Вернуться назад\nВыбор: ";
-                int op; std::cin >> op;
-                if (op == 0) continue;
-                bool enc = (op == 1);
-
-                std::cin.ignore();
-                std::cout << "Введите путь к исходному файлу: ";
-                std::string in_path;
-                std::getline(std::cin, in_path);
-
-                if (!file_exists(in_path)) {
-                    std::cout << "Ошибка: Файл не найден!\n";
-                    continue;
-                }
-
-                std::cout << "Введите путь к результирующему файлу: ";
-                std::string out_path;
-                std::getline(std::cin, out_path);
-
-                std::cout << "Введите ключ: ";
-                std::string key;
-                std::getline(std::cin, key);
-
-                std::ifstream infile(in_path, std::ios::binary | std::ios::ate);
-                if (!infile.is_open()) throw std::runtime_error("Не удалось открыть файл ввода.");
-                
-                std::streamsize size = infile.tellg();
-                infile.seekg(0, std::ios::beg);
-
-                std::vector<unsigned char> in_buf(size);
-                if (!infile.read(reinterpret_cast<char*>(in_buf.data()), size)) {
-                    throw std::runtime_error("Ошибка чтения данных из файла.");
-                }
-                infile.close();
-
-                std::vector<unsigned char> out_buf(size);
-
-                run_cipher(choice, in_buf, out_buf, key, enc);
-
-                std::ofstream outfile(out_path, std::ios::binary);
-                if (!outfile.is_open()) throw std::runtime_error("Не удалось открыть файл вывода.");
-                outfile.write(reinterpret_cast<const char*>(out_buf.data()), out_buf.size());
-                outfile.close();
-
-                std::cout << "Операция успешно завершена. Файл сохранен по пути: " << out_path << "\n";
+        // Внутренний цикл для фиксации пользователя внутри выбранного шифра
+        while (true) {
+            std::cout << "\n--- Работа с выбранным алгоритмом ---\n";
+            std::cout << "1. Запустить генератор ключей\n";
+            std::cout << "2. Работа с текстом\n";
+            std::cout << "3. Работа с файлом\n";
+            std::cout << "0. Вернуться в главное меню\n";
+            std::cout << "Выберите режим: ";
+            
+            int mode;
+            if (!(std::cin >> mode)) {
+                std::cin.clear();
+                std::cin.ignore(10000, '\n');
+                break;
             }
-        } 
-        catch (const std::exception& e) {
-            std::cerr << "Произошел сбой: " << e.what() << "\n";
+
+            if (mode == 0) {
+                break; // Возврат в главное меню к выбору других алгоритмов
+            }
+
+            try {
+                if (mode == 1) {
+                    std::string generated = run_key_generator(choice);
+                    std::cout << "Сгенерированный ключ: " << generated << "\n";
+                } 
+                else if (mode == 2) {
+                    std::cin.ignore();
+                    std::cout << "Введите строку: ";
+                    std::string text;
+                    std::getline(std::cin, text);
+
+                    std::cout << "Введите ключ: ";
+                    std::string key;
+                    std::getline(std::cin, key);
+
+                    std::cout << "1. Зашифровать\n2. Расшифровать\nВыбор: ";
+                    int op; std::cin >> op;
+                    bool enc = (op == 1);
+
+                    std::vector<unsigned char> in_buf(text.begin(), text.end());
+                    std::vector<unsigned char> out_buf(in_buf.size());
+
+                    run_cipher(choice, in_buf, out_buf, key, enc);
+
+                    std::string res(out_buf.begin(), out_buf.end());
+                    std::cout << "Результат: " << res << "\n";
+                } 
+                else if (mode == 3) {
+                    std::cin.ignore();
+                    std::cout << "Введите путь к исходному файлу: ";
+                    std::string in_path;
+                    std::getline(std::cin, in_path);
+
+                    if (!file_exists(in_path)) {
+                        std::cout << "Ошибка: Файл не найден!\n";
+                        continue;
+                    }
+
+                    std::cout << "Введите путь к результирующему файлу: ";
+                    std::string out_path;
+                    std::getline(std::cin, out_path);
+
+                    // Валидация и интерактивное создание папок по пункту 4.1.2 ТЗ
+                    std::filesystem::path out_file_path(out_path);
+                    std::filesystem::path out_dir = out_file_path.parent_path();
+
+                    if (!out_dir.empty() && !std::filesystem::exists(out_dir)) {
+                        std::cout << "Директория " << out_dir << " не существует. Создать её? (1 - Да, 0 - Нет): ";
+                        int create_choice;
+                        std::cin >> create_choice;
+                        if (create_choice == 1) {
+                            std::filesystem::create_directories(out_dir);
+                        } else {
+                            std::cout << "Операция отменена: отсутствует целевая директория.\n";
+                            continue;
+                        }
+                    }
+
+                    std::cin.ignore();
+                    std::cout << "Введите ключ: ";
+                    std::string key;
+                    std::getline(std::cin, key);
+
+                    std::cout << "1. Зашифровать\n2. Расшифровать\nВыбор: ";
+                    int op; std::cin >> op;
+                    bool enc = (op == 1);
+
+                    std::ifstream infile(in_path, std::ios::binary | std::ios::ate);
+                    if (!infile.is_open()) throw std::runtime_error("Не удалось открыть файл ввода.");
+                    
+                    std::streamsize size = infile.tellg();
+                    infile.seekg(0, std::ios::beg);
+
+                    std::vector<unsigned char> in_buf(size);
+                    if (!infile.read(reinterpret_cast<char*>(in_buf.data()), size)) {
+                        throw std::runtime_error("Ошибка чтения данных из файла.");
+                    }
+                    infile.close();
+
+                    std::vector<unsigned char> out_buf(size);
+
+                    run_cipher(choice, in_buf, out_buf, key, enc);
+
+                    std::ofstream outfile(out_path, std::ios::binary);
+                    if (!outfile.is_open()) throw std::runtime_error("Не удалось открыть файл вывода.");
+                    outfile.write(reinterpret_cast<const char*>(out_buf.data()), out_buf.size());
+                    outfile.close();
+
+                    std::cout << "Операция успешно завершена. Файл сохранен по пути: " << out_path << "\n";
+                } else {
+                    std::cout << "Неверный режим работы.\n";
+                }
+            } 
+            catch (const std::exception& e) {
+                std::cerr << "Произошел сбой: " << e.what() << "\n";
+            }
         }
     }
 

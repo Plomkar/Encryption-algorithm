@@ -4,7 +4,10 @@ extern "C" {
     void process_data(const unsigned char* in, size_t size, unsigned char* out, const std::string& key, bool encrypt) {
         int a = 3, b = 3, c = 2, d = 5; 
         if (key.length() >= 4) {
-            a = key[0]; b = key[1]; c = key[2]; d = key[3];
+            a = static_cast<unsigned char>(key[0]); 
+            b = static_cast<unsigned char>(key[1]); 
+            c = static_cast<unsigned char>(key[2]); 
+            d = static_cast<unsigned char>(key[3]);
         }
 
         if (!encrypt) {
@@ -38,7 +41,15 @@ extern "C" {
     }
 
     std::string generate_key() {
-        // Ключ-матрица по умолчанию
-        return "\x03\x03\x02\x05"; 
+        // Возвращает строку "CCBF", ASCII коды: 67, 67, 66, 70. 
+        // Определитель: (67*70 - 67*66) = 67 * 4 = 268 = 12 (мод 256). НОД(12, 256) != 1.
+        // Давай предоставим гарантированно обратимую печатную матрицу: "ABCD" -> 65, 66, 67, 68
+        // det = (65*68 - 66*67) = 4420 - 4422 = -2 = 254 (мод 256). НОД(254, 256) != 1.
+        
+        // Отличная печатная обратимая матрицу: "AABB" не подходит. Возьмем строку "OKey"
+        // 'O'=79, 'K'=75, 'e'=101, 'y'=121. det = 79*121 - 75*101 = 9559 - 7575 = 1984 % 256 = 192 (четное).
+        // Используем символы с кодами: 3, 3, 2, 5 (они не все печатные).
+        // Идеальный печатный вариант: "dceg" -> 100, 99, 101, 103. det = 100*103 - 99*101 = 10300 - 9999 = 301 % 256 = 45 (нечетное, взаимно простое с 256!).
+        return "dceg"; 
     }
 }
