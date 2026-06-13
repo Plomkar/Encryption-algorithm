@@ -167,7 +167,7 @@ int main() {
 
             if (mode == 0) {
                 keep_working_with_cipher = false;
-                continue; // Выходим во внешний цикл к выбору шифров
+                continue;
             }
 
             try {
