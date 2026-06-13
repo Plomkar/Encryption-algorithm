@@ -4,7 +4,6 @@
 #include <cstring>
 #include <random>
 
-// S-Box (Таблица замен): используется для нелинейной подстановки байтов (этап SubBytes)
 const unsigned char sbox[256] = {
     0x63, 0x7c, 0x77, 0x7b, 0xf2, 0x6b, 0x6f, 0xc5, 0x30, 0x01, 0x67, 0x2b, 0xfe, 0xd7, 0xab, 0x76,
     0xca, 0x82, 0xc9, 0x7d, 0xfa, 0x59, 0x47, 0xf0, 0xad, 0xd4, 0xa2, 0xaf, 0x9c, 0xa4, 0x72, 0xc0,
@@ -24,10 +23,8 @@ const unsigned char sbox[256] = {
     0x8c, 0xa1, 0x89, 0x0d, 0xbf, 0xe6, 0x42, 0x68, 0x41, 0x99, 0x2d, 0x0f, 0xb0, 0x54, 0xbb, 0x16
 };
 
-// используются при расширении ключа для добавления константы к первому байту слова
 const unsigned char rcon[11] = { 0x00, 0x01, 0x02, 0x04, 0x08, 0x10, 0x20, 0x40, 0x80, 0x1b, 0x36 };
 
-// выполняет умножение на 2 в поле Галуа GF(2^8)
 inline unsigned char xtime(unsigned char x) { 
     return (x << 1) ^ ((x & 0x80) ? 0x1b : 0x00); 
 }
@@ -99,7 +96,7 @@ extern "C" {
             if (16 + i < key.length()) {
                 iv[i] = static_cast<unsigned char>(key[16 + i]);
             } else {
-                iv[i] = masterKey[i] ^ 0x55; // Дефолтный вектор сдвига
+                iv[i] = masterKey[i] ^ 0x55;
             }
         }
 
@@ -121,7 +118,6 @@ extern "C" {
                     
                     out[i + j] = in[i + j] ^ stream[j]; 
                     
-                    // Обновление обратной связи: о текущий блок шифротекста
                     feedback[j] = encrypt ? out[i + j] : originalByte;
                 }
             }
@@ -129,7 +125,6 @@ extern "C" {
     }
 
     std::string generate_key() {
-        // Генерируем 32 случайных байта: 16 байт для Ключа + 16 байт для IV
         std::random_device rd;
         std::mt19937 gen(rd());
         std::uniform_int_distribution<> dis(0, 255);

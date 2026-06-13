@@ -9,11 +9,9 @@
 #include <iomanip>
 #include <cctype>
 
-// Прототипы функций из интерфейса библиотек
 typedef void (*process_data_t)(const unsigned char*, size_t, unsigned char*, const std::string&, bool);
 typedef std::string (*generate_key_t)();
 
-// Перечисление типов шифров с помощью enum class
 enum class CipherType {
     Exit = 0,
     Caesar = 1,
@@ -25,13 +23,11 @@ enum class CipherType {
     Unknown
 };
 
-// Проверка существования файла
 bool file_exists(const std::string& path) {
     struct stat buffer;
     return (stat(path.c_str(), &buffer) == 0);
 }
 
-// Преобразование пути .so файла на основе перечисления
 std::string get_lib_name(CipherType type) {
     switch (type) {
         case CipherType::Caesar:   return "./libcaesar.so";
@@ -44,7 +40,6 @@ std::string get_lib_name(CipherType type) {
     }
 }
 
-// Переводит бинарную строку (с любыми байтами) в читаемый HEX-вид
 std::string to_hex(const std::string& input) {
     std::ostringstream oss;
     for (unsigned char c : input) {
@@ -53,12 +48,10 @@ std::string to_hex(const std::string& input) {
     return oss.str();
 }
 
-// Переводит введенную пользователем HEX-строку обратно в бинарный вид
 std::string from_hex(const std::string& hex_input) {
     std::string result;
     std::string clean_hex = "";
     
-    // Удаляем пробелы, если пользователь случайно их вставил
     for (char c : hex_input) {
         if (!std::isspace(static_cast<unsigned char>(c))) {
             clean_hex += c;
@@ -144,7 +137,6 @@ int main() {
             break;
         }
 
-        // Приведение введенного int к enum class
         CipherType choice = CipherType::Unknown;
         if (int_choice >= 0 && int_choice <= 6) {
             choice = static_cast<CipherType>(int_choice);
@@ -156,7 +148,6 @@ int main() {
             continue;
         }
 
-        // Внутренний цикл для работы с выбранным шифром
         bool keep_working_with_cipher = true;
         while (keep_working_with_cipher) {
             std::cout << "\nРежим работы с выбранным шифром\n";
@@ -202,7 +193,7 @@ int main() {
                     }
 
                     std::vector<unsigned char> in_buf;
-                    size_t original_size = 0; // Запоминаем исходный размер для расшифрования
+                    size_t original_size = 0;
 
                     if (enc) {
                         std::cout << "Введите строку: ";
@@ -217,13 +208,11 @@ int main() {
                         in_buf.assign(text.begin(), text.end());
 
                         if (choice == CipherType::Aes) {
-                            // Округляем до ближайшего кратного 16
                             size_t padded_size = ((in_buf.size() + 15) / 16) * 16;
-                            in_buf.resize(padded_size, 0); // Дописываем нули
+                            in_buf.resize(padded_size, 0);
                         } else if (choice == CipherType::Hill) {
-                            // Округляем до ближайшего кратного 2
                             if (in_buf.size() % 2 != 0) {
-                                in_buf.push_back(0); // Дописываем один ноль
+                                in_buf.push_back(0);
                             }
                         }
                     } else {
@@ -239,7 +228,6 @@ int main() {
                         in_buf.assign(bin_text.begin(), bin_text.end());
                     }
 
-                    // Теперь out_buf гарантированно правильного блочного размера
                     std::vector<unsigned char> out_buf(in_buf.size());
 
                     run_cipher(choice, in_buf, out_buf, key, enc);
@@ -248,9 +236,7 @@ int main() {
                         std::string raw_res(out_buf.begin(), out_buf.end());
                         std::cout << "Результат (HEX): " << to_hex(raw_res) << "\n";
                     } else {
-                        // При расшифровании отбрасываем нулевые байты хвоста, если они были дописаны
                         std::string res(out_buf.begin(), out_buf.end());
-                        // Находим первый нулевой терминатор или выводим как есть
                         size_t real_len = res.find('\0');
                         if (real_len != std::string::npos) {
                             res = res.substr(0, real_len);
@@ -278,7 +264,6 @@ int main() {
                     std::getline(std::cin, hex_key);
                     std::string key = from_hex(hex_key);
 
-                    // ПРОВЕРКА: Для файлов требуем ключ (если это не Атбаш)
                     if (key.empty() && choice != CipherType::Atbash) {
                         throw std::runtime_error("Ключ не может быть пустым для выбранного алгоритма!");
                     }
@@ -293,7 +278,6 @@ int main() {
                     std::streamsize size = infile.tellg();
                     infile.seekg(0, std::ios::beg);
 
-                    // ПРОВЕРКА: Защита от обработки пустого файла (0 байт)
                     if (size == 0) {
                         infile.close();
                         throw std::runtime_error("Выбранный файл пуст! Нечего шифровать.");
@@ -321,7 +305,6 @@ int main() {
                 }
             } 
             catch (const std::exception& e) {
-                // Все throw std::runtime_error будут красиво перехватываться здесь
                 std::cerr << "Произошел сбой: " << e.what() << "\n";
             }
         }

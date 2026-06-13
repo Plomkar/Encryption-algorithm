@@ -15,7 +15,7 @@ extern "C" {
     std::string generate_key() {
         srand(static_cast<unsigned int>(time(nullptr)));
         std::string k = "";
-        k += static_cast<char>(1 + rand() % 25); // Сдвиг от 1 до 25
+        k += static_cast<char>(1 + rand() % 25);
         return k;
     }
 }
